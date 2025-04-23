@@ -1,0 +1,15 @@
+# Ignorer l'entièreté des fichiers/dossiers
+/**/*
+
+# Ne pas ignorer les fichiers suivant
+!/.gitignore
+!/api.py
+!/graphe.py
+!/main.py
+!/pylintrc
+!/quoridor.py
+!/quoridor_error.py
+!/README.md
+!/tests.py
+
+# Pas besoin d'inclure les bundles créés, ils seront ignorés automatiquement
