@@ -10,7 +10,6 @@ from copy import deepcopy
 
 import networkx as nx
 
-import traceback
 
 from quoridor_error import QuoridorError
 from graphe import construire_graphe
@@ -169,12 +168,21 @@ class Quoridor:
                 break
         else:
             raise QuoridorError("Le joueur n'existe pas.")
+        
         x, y = position
         if not (1 <= x <= 9 and 1 <= y <= 9): #si le joueur est en dehors du damier
             raise QuoridorError("La position est invalide (en dehors du damier).")
+        
         x_actuel, y_actuel = joueur_trouvé["position"] #position du joueur avant le coup
-        if abs(x_actuel - x) + abs(y_actuel - y) != 1: #si le joueur ne bouge pas que d'une case
-            raise QuoridorError("La position est invalide pour l'état actuel du jeu.")
+
+        graphe = construire_graphe(
+            [joueur["position"] for joueur in self.joueurs],
+            self.murs["horizontaux"],
+            self.murs["verticaux"]
+        )
+        if (x, y) not in graphe.successors((x_actuel, y_actuel)):
+                raise QuoridorError("La position est invalide pour l'état actuel du jeu.")
+        
         joueur_trouvé["position"] = [x, y] #on update la position du joueur
 
 
@@ -411,7 +419,9 @@ def interpréter_la_ligne_de_commande():
     parser.add_argument(
         "idul",
         type=str,
-        help="IDUL du joueur"
+        help="IDUL du joueur",
+        nargs="?",
+        default="ralem59"
     )
     parser.add_argument("-a", "--automatique",
                          action="store_true",
@@ -421,7 +431,3 @@ def interpréter_la_ligne_de_commande():
                         help="Activer le mode graphique."
                         )
     return parser.parse_args()
-
-def placer_un_mur(self, joueur, position, orientation):
-    print(f"Appel à placer_un_mur avec joueur={joueur}, position={position}, orientation={orientation}")
-    traceback.print_stack()  # Affiche la pile d'appels
