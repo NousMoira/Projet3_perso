@@ -375,33 +375,13 @@ class Quoridor:
             self.murs["verticaux"]
         )
 
-        # Vérifier si les joueurs sont face à face
-        adversaire = self.joueurs[1] if joueur == self.joueurs[0]["nom"] else self.joueurs[0]
+        # Calculer le chemin le plus court vers la ligne de victoire
         position_joueur = tuple(jt["position"])
-        position_adversaire = tuple(adversaire["position"])
+        objectif = (position_joueur[0], 9) if joueur == self.joueurs[0]["nom"] else (position_joueur[0], 1)
+        chemin = nx.shortest_path(graphe, position_joueur, objectif)
 
-        if position_adversaire in graphe.neighbors(position_joueur):
-            # Les joueurs sont face à face
-            saut = (2 * position_adversaire[0] - position_joueur[0],
-                    2 * position_adversaire[1] - position_joueur[1])
-            if saut in graphe.nodes and position_adversaire in graphe.neighbors(position_joueur):
-                # Vérifier si le saut est possible (pas de mur bloquant)
-                prochaine_position = list(saut)
-            else:
-                # Si le saut n'est pas possible, calculer un déplacement diagonal
-                alternatives = list(graphe.neighbors(position_joueur))
-                # Exclure la position de l'adversaire et les positions invalides
-                alternatives = [pos for pos in alternatives if pos != position_adversaire]
-                if not alternatives:
-                    raise QuoridorError("Aucun déplacement valide n'est possible.")
-                prochaine_position = list(alternatives[0])  # Choisir une alternative valide
-        else:
-            # Sinon, calculer le chemin le plus court
-            chemin = nx.shortest_path(graphe, position_joueur,
-                                      (position_joueur[0], 9) if joueur == self.joueurs[0]["nom"] else (
-                                      position_joueur[0], 1))
-            prochaine_position = list(chemin[1])
-
+        # Déplacer le joueur vers la prochaine position sur le chemin
+        prochaine_position = list(chemin[1])
         self.déplacer_un_joueur(joueur, prochaine_position)
         return "D", prochaine_position
 
