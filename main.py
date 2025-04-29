@@ -11,11 +11,11 @@ JETONS = {
     "ralem59": "37a12da5-c506-411b-8c4e-2979dec6249b",
 }
 
-AUTOMATIQUE = False
 
 
 if __name__ == "__main__":
     args = interpréter_la_ligne_de_commande()
+    AUTOMATIQUE = args.automatique
     secret = JETONS[args.idul]
     id_partie, état = créer_une_partie(args.idul, secret)
     quoridor = Quoridor(état["joueurs"], état["murs"], état["tour"])

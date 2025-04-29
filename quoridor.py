@@ -10,6 +10,8 @@ from copy import deepcopy
 
 import networkx as nx
 
+import traceback
+
 from quoridor_error import QuoridorError
 from graphe import construire_graphe
 
@@ -209,6 +211,8 @@ class Quoridor:
         elif orientation == "MV":
             murs_liste = self.murs["verticaux"]
             conflits = [position, [x, y + 1], [x, y - 1]]
+        else:
+            raise QuoridorError("Orientation invalide pour le mur.")
 
         if any(mur in murs_liste for mur in conflits):
             raise QuoridorError("Un mur occupe déjà cette position.")
@@ -257,6 +261,8 @@ class Quoridor:
                Le type de coup est une chaîne de caractères.
                La position est une liste de 2 entier [x, y].
         """
+        print(f"Appliquer un coup : joueur={joueur}, coup={coup}, position={position}")
+        
         joueur_trouvé = next((j for j in self.joueurs if j["nom"] == joueur), None)
         if joueur_trouvé is None:
             raise QuoridorError("Le joueur n'existe pas.")
@@ -264,14 +270,20 @@ class Quoridor:
             raise QuoridorError("Le type de coup est invalide.")
         if not (1 <= position[0] <= 9 and 1 <= position[1] <= 9):
             raise QuoridorError("La position est invalide (en dehors du damier).")
+        
         if coup == "D":
             self.déplacer_un_joueur(joueur, position)
+        elif coup in ["MH", "MV"]:
+            self.placer_un_mur(joueur, position, coup)
+        else:
+            raise QuoridorError("Le type de coup est invalide.")
+        
         if self.partie_terminée():
             raise QuoridorError("La partie est déjà terminée.")
-        else:
-            self.placer_un_mur(joueur, position, coup)
+        
         if joueur == self.joueurs[1]["nom"]:
             self.tour += 1
+            
         return coup, position
 
     def sélectionner_un_coup(self, joueur):
@@ -348,19 +360,41 @@ class Quoridor:
             raise QuoridorError("Le joueur n'existe pas.")
         if self.partie_terminée():
             raise QuoridorError("La partie est déjà terminée.")
+
         graphe = construire_graphe(
             [joueur['position'] for joueur in self.joueurs],
             self.murs["horizontaux"],
             self.murs["verticaux"]
         )
-        chemin = nx.shortest_path(graphe, tuple(jt["position"]),
-                                  (jt["position"][0], 9) if joueur == self.joueurs[0]["nom"] else (
-                                  jt["position"][0], 1))
-        
-        prochaine_position = list(chemin[1])
+
+        # Vérifier si les joueurs sont face à face
+        adversaire = self.joueurs[1] if joueur == self.joueurs[0]["nom"] else self.joueurs[0]
+        position_joueur = tuple(jt["position"])
+        position_adversaire = tuple(adversaire["position"])
+
+        if position_adversaire in graphe.neighbors(position_joueur):
+            # Les joueurs sont face à face
+            saut = (2 * position_adversaire[0] - position_joueur[0],
+                    2 * position_adversaire[1] - position_joueur[1])
+            if saut in graphe.nodes and position_adversaire in graphe.neighbors(position_joueur):
+                # Vérifier si le saut est possible (pas de mur bloquant)
+                prochaine_position = list(saut)
+            else:
+                # Si le saut n'est pas possible, calculer un déplacement diagonal
+                alternatives = list(graphe.neighbors(position_joueur))
+                # Exclure la position de l'adversaire et les positions invalides
+                alternatives = [pos for pos in alternatives if pos != position_adversaire]
+                if not alternatives:
+                    raise QuoridorError("Aucun déplacement valide n'est possible.")
+                prochaine_position = list(alternatives[0])  # Choisir une alternative valide
+        else:
+            # Sinon, calculer le chemin le plus court
+            chemin = nx.shortest_path(graphe, position_joueur,
+                                      (position_joueur[0], 9) if joueur == self.joueurs[0]["nom"] else (
+                                      position_joueur[0], 1))
+            prochaine_position = list(chemin[1])
 
         self.déplacer_un_joueur(joueur, prochaine_position)
-
         return "D", prochaine_position
 
 
@@ -379,4 +413,15 @@ def interpréter_la_ligne_de_commande():
         type=str,
         help="IDUL du joueur"
     )
+    parser.add_argument("-a", "--automatique",
+                         action="store_true",
+                         help="Activer le mode automatique."
+                         )
+    parser.add_argument("-x","--graphique", 
+                        help="Activer le mode graphique."
+                        )
     return parser.parse_args()
+
+def placer_un_mur(self, joueur, position, orientation):
+    print(f"Appel à placer_un_mur avec joueur={joueur}, position={position}, orientation={orientation}")
+    traceback.print_stack()  # Affiche la pile d'appels
