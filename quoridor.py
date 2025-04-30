@@ -347,41 +347,86 @@ class Quoridor:
     def jouer_un_coup(self, joueur):
         """Jouer un coup automatique pour un joueur.
 
-        Pour le joueur spécifié, jouer automatiquement son meilleur coup pour l'état actuel
-        de la partie. Ce coup est soit le déplacement de son jeton, soit le placement d'un
-        mur horizontal ou vertical.
-
         Args:
             joueur (str): le nom du joueur.
 
-        Raises:
-            QuoridorError: Le joueur n'existe pas.
-            QuoridorError: La partie est déjà terminée.
-
         Returns:
             tuple: Un tuple composé d'un type de coup et de la position.
-               Le type de coup est une chaîne de caractères.
-               La position est une liste de 2 entier [x, y].
         """
+        # Identifier les joueurs
         jt = next((j for j in self.joueurs if j["nom"] == joueur), None)
-        if jt is None:
+        advs = next((j for j in self.joueurs if j["nom"] != joueur), None)
+
+        if jt is None or advs is None:
             raise QuoridorError("Le joueur n'existe pas.")
         if self.partie_terminée():
             raise QuoridorError("La partie est déjà terminée.")
 
+        # Créer le graphe
         graphe = construire_graphe(
             [joueur['position'] for joueur in self.joueurs],
             self.murs["horizontaux"],
             self.murs["verticaux"]
         )
 
-        # Calculer le chemin le plus court vers la ligne de victoire
+        # Calculer les positions et objectifs
         position_joueur = tuple(jt["position"])
-        objectif = (position_joueur[0], 9) if joueur == self.joueurs[0]["nom"] else (position_joueur[0], 1)
-        chemin = nx.shortest_path(graphe, position_joueur, objectif)
+        position_advs = tuple(advs["position"])
+        objectif_joueur = (position_joueur[0], 9) if joueur == self.joueurs[0]["nom"] else (position_joueur[0], 1)
+        objectif_advs = (position_advs[0], 1) if advs == self.joueurs[0] else (position_advs[0], 9)
 
-        # Déplacer le joueur vers la prochaine position sur le chemin
-        prochaine_position = list(chemin[1])
+        # Calculer les chemins les plus courts
+        chemin_joueur = nx.shortest_path(graphe, position_joueur, objectif_joueur)
+        chemin_advs = nx.shortest_path(graphe, position_advs, objectif_advs)
+
+        # Vérifier les conditions pour poser un mur
+        if len(chemin_advs) < len(chemin_joueur) and jt["murs"] > 0:
+            # Construire la liste des murs disponibles
+            murs_disponibles = []
+            for x in range(1, 9):  # Les murs sont entre 1 et 8
+                for y in range(2, 9):  # Les murs sont entre 2 et 9
+                    position_mur = [x, y]
+                    if position_mur not in self.murs["horizontaux"] and position_mur not in self.murs["verticaux"]:
+                        # Ajouter uniquement les murs proches du chemin de l'adversaire
+                        if any(abs(x - px) <= 1 and abs(y - py) <= 1 for px, py in chemin_advs):
+                            murs_disponibles.append(position_mur)
+
+            meilleur_score = float('-inf')
+            meilleur_mur = None
+
+            # Évaluer chaque mur possible
+            for mur in murs_disponibles:
+                for orientation in ["MH", "MV"]:
+                    try:
+                        # Valider le mur en appelant placer_un_mur
+                        etat_simulé = Quoridor(deepcopy(self.joueurs), deepcopy(self.murs), self.tour)
+                        etat_simulé.placer_un_mur(joueur, mur, orientation)
+
+                        # Calculer les nouveaux chemins
+                        graphe_simulé = construire_graphe(
+                            [joueur['position'] for joueur in etat_simulé.joueurs],
+                            etat_simulé.murs["horizontaux"],
+                            etat_simulé.murs["verticaux"]
+                        )
+                        chemin_advs_simulé = nx.shortest_path(graphe_simulé, position_advs, objectif_advs)
+
+                        # Calculer l'augmentation de la longueur du chemin de l'adversaire
+                        delta_adv = len(chemin_advs_simulé) - len(chemin_advs)
+                        if delta_adv > meilleur_score:
+                            meilleur_score = delta_adv
+                            meilleur_mur = (mur, orientation)
+
+                    except QuoridorError:
+                        # Ignorer les murs invalides
+                        continue
+
+            # Si un mur valide a été trouvé, le poser
+            if meilleur_mur:
+                self.placer_un_mur(joueur, meilleur_mur[0], meilleur_mur[1])
+                return meilleur_mur[1], meilleur_mur[0]
+
+        # Sinon, avancer vers l'objectif
+        prochaine_position = list(chemin_joueur[1])
         self.déplacer_un_joueur(joueur, prochaine_position)
         return "D", prochaine_position
 
