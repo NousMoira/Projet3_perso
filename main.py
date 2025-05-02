@@ -54,6 +54,8 @@ if __name__ == "__main__":
                 coup,
                 position,
             )
+            print(f"Le serveur a joué : {coup} à la position {position}")
+            
         except StopIteration as erreur:
             # Si le jeu est terminé
             # Récupérer la partie finale

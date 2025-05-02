@@ -415,6 +415,12 @@ class Quoridor:
                 for coup, position in generer_coups_possibles(etat, joueur_actuel):
                     etat_simulé = deepcopy(etat)
                     try:
+                        # Vérifier si le coup est gagnant
+                        if coup == "D" and position[1] == 9 and joueur_actuel == etat.joueurs[0]["nom"]:
+                            return float('inf'), (coup, position)
+                        if coup == "D" and position[1] == 1 and joueur_actuel == etat.joueurs[1]["nom"]:
+                            return float('inf'), (coup, position)
+
                         etat_simulé.appliquer_un_coup(joueur_actuel, coup, position)
                         score, _ = minimax(etat_simulé, profondeur - 1, alpha, beta, False, joueur_actuel)
                         if score > meilleur_score:
@@ -436,6 +442,12 @@ class Quoridor:
                 for coup, position in generer_coups_possibles(etat, adversaire):
                     etat_simulé = deepcopy(etat)
                     try:
+                        # Vérifier si le coup est gagnant pour l'adversaire
+                        if coup == "D" and position[1] == 9 and adversaire == etat.joueurs[0]["nom"]:
+                            return float('-inf'), (coup, position)
+                        if coup == "D" and position[1] == 1 and adversaire == etat.joueurs[1]["nom"]:
+                            return float('-inf'), (coup, position)
+
                         etat_simulé.appliquer_un_coup(adversaire, coup, position)
                         score, _ = minimax(etat_simulé, profondeur - 1, alpha, beta, True, joueur_actuel)
                         if score < meilleur_score:
