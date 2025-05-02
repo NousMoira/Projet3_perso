@@ -213,19 +213,29 @@ class Quoridor:
         x, y = position
         if not (1 <= x <= 9 and 1 <= y <= 9):
             raise QuoridorError("La position est invalide (en dehors du damier).")
+        
 
-        if orientation == "MH":
-            murs_liste = self.murs["horizontaux"]
-            conflits = [position, [x + 1, y], [x - 1, y]]
-        elif orientation == "MV":
-            murs_liste = self.murs["verticaux"]
-            conflits = [position, [x, y + 1], [x, y - 1]]
-        else:
-            raise QuoridorError("Orientation invalide pour le mur.")
-
-        if any(mur in murs_liste for mur in conflits):
+        if (
+            (orientation == "MH" and (
+                position in self.murs["horizontaux"] or
+                [x + 1, y] in self.murs["horizontaux"] or
+                [x - 1, y] in self.murs ["horizontaux"] or
+                [x + 1, y - 1] in self.murs["verticaux"]
+            )) or
+            (orientation == "MV" and (
+                position in self.murs["verticaux"] or
+                [x, y + 1] in self.murs["verticaux"] or
+                [x, y - 1] in self.murs["verticaux"] or
+                [x - 1, y + 1] in self.murs["horizontaux"]
+            ))
+        ):
             raise QuoridorError("Un mur occupe déjà cette position.")
 
+        #Déterminer la clés (orientation)
+        cle_murs = "horizontaux" if orientation == "MH" else "verticaux"
+
+        #Placer le mur
+        murs_liste = self.murs[cle_murs]
         murs_liste.append(position)
         joueur_trouvé["murs"] -= 1
 
@@ -247,7 +257,6 @@ class Quoridor:
             murs_liste.remove(position)
             joueur_trouvé["murs"] += 1
             raise QuoridorError("Vous ne pouvez pas enfermer un joueur.")
-        self.murs["horizontaux" if orientation == "MH" else "verticaux"] = murs_liste
 
 
     def appliquer_un_coup(self, joueur, coup, position):
@@ -365,6 +374,8 @@ class Quoridor:
         Returns:
             tuple: Un tuple composé d'un type de coup et de la position.
         """
+        if self.partie_terminée():
+            return None
         def fonction_evaluation(etat, joueur_actuel):
             """Évalue la qualité d'un état du jeu."""
             graphe = construire_graphe(
@@ -509,8 +520,9 @@ class Quoridor:
         # Appeler Minimax pour déterminer le meilleur coup
         _, meilleur_coup = minimax(self, profondeur=2, alpha=float('-inf'), beta=float('inf'), maximiser=True, joueur_actuel=joueur)
 
-        if not meilleur_coup:
-            raise RuntimeError("Aucun coup valide trouvé.")
+        
+             
+            
 
         # Appliquer le coup calculé à l'état local
         coup, position = meilleur_coup
