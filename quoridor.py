@@ -13,6 +13,7 @@ import networkx as nx
 
 from quoridor_error import QuoridorError
 from graphe import construire_graphe
+from api import récupérer_une_partie
 
 
 class Quoridor:
@@ -233,10 +234,16 @@ class Quoridor:
             self.murs["horizontaux"],
             self.murs["verticaux"]
         )
-        if not all([
-            nx.has_path(graphe, tuple(self.joueurs[0]["position"]), (5, 9)),
-            nx.has_path(graphe, tuple(self.joueurs[1]["position"]), (5, 1))
-        ]):
+
+        # Vérifier si le joueur 1 peut atteindre n'importe quelle position sur la ligne 9
+        objectifs_joueur1 = [(x, 9) for x in range(1, 10)]
+        chemin_joueur1 = any(nx.has_path(graphe, tuple(self.joueurs[0]["position"]), objectif) for objectif in objectifs_joueur1)
+
+        # Vérifier si le joueur 2 peut atteindre n'importe quelle position sur la ligne 1
+        objectifs_joueur2 = [(x, 1) for x in range(1, 10)]
+        chemin_joueur2 = any(nx.has_path(graphe, tuple(self.joueurs[1]["position"]), objectif) for objectif in objectifs_joueur2)
+
+        if not (chemin_joueur1 and chemin_joueur2):
             murs_liste.remove(position)
             joueur_trouvé["murs"] += 1
             raise QuoridorError("Vous ne pouvez pas enfermer un joueur.")
@@ -269,7 +276,6 @@ class Quoridor:
                Le type de coup est une chaîne de caractères.
                La position est une liste de 2 entier [x, y].
         """
-        print(f"Appliquer un coup : joueur={joueur}, coup={coup}, position={position}")
         
         joueur_trouvé = next((j for j in self.joueurs if j["nom"] == joueur), None)
         if joueur_trouvé is None:
@@ -345,90 +351,164 @@ class Quoridor:
         return False
 
     def jouer_un_coup(self, joueur):
-        """Jouer un coup automatique pour un joueur.
+        """Détermine le meilleur coup pour un joueur en utilisant l'algorithme Minimax.
+
+        Cette méthode calcule le meilleur coup, l'applique à l'état local, et met à jour
+        les attributs `self.joueurs` et `self.murs`.
 
         Args:
             joueur (str): le nom du joueur.
+            id_partie (str): l'identifiant de la partie (non utilisé ici).
+            idul (str): l'IDUL du joueur (non utilisé ici).
+            secret (str): le secret pour l'authentification (non utilisé ici).
 
         Returns:
             tuple: Un tuple composé d'un type de coup et de la position.
         """
-        # Identifier les joueurs
-        jt = next((j for j in self.joueurs if j["nom"] == joueur), None)
-        advs = next((j for j in self.joueurs if j["nom"] != joueur), None)
+        def fonction_evaluation(etat, joueur_actuel):
+            """Évalue la qualité d'un état du jeu."""
+            graphe = construire_graphe(
+                [joueur['position'] for joueur in etat.joueurs],
+                etat.murs["horizontaux"],
+                etat.murs["verticaux"]
+            )
+            position_joueur = tuple(etat.joueurs[0]["position"])
+            position_adversaire = tuple(etat.joueurs[1]["position"])
 
-        if jt is None or advs is None:
-            raise QuoridorError("Le joueur n'existe pas.")
-        if self.partie_terminée():
-            raise QuoridorError("La partie est déjà terminée.")
+            # Objectifs : toute la ligne 9 pour le joueur 1, toute la ligne 1 pour le joueur 2
+            objectifs_joueur = [(x, 9) for x in range(1, 10)]
+            objectifs_adversaire = [(x, 1) for x in range(1, 10)]
 
-        # Créer le graphe
-        graphe = construire_graphe(
-            [joueur['position'] for joueur in self.joueurs],
-            self.murs["horizontaux"],
-            self.murs["verticaux"]
-        )
+            # Trouver le chemin le plus court vers n'importe quelle position sur la ligne cible
+            try:
+                distance_joueur = min(
+                    len(nx.shortest_path(graphe, position_joueur, objectif))
+                    for objectif in objectifs_joueur
+                    if nx.has_path(graphe, position_joueur, objectif)
+                )
+            except ValueError:
+                # Aucun chemin trouvé pour le joueur
+                distance_joueur = float('inf')
 
-        # Calculer les positions et objectifs
-        position_joueur = tuple(jt["position"])
-        position_advs = tuple(advs["position"])
-        objectif_joueur = (position_joueur[0], 9) if joueur == self.joueurs[0]["nom"] else (position_joueur[0], 1)
-        objectif_advs = (position_advs[0], 1) if advs == self.joueurs[0] else (position_advs[0], 9)
+            try:
+                distance_adversaire = min(
+                    len(nx.shortest_path(graphe, position_adversaire, objectif))
+                    for objectif in objectifs_adversaire
+                    if nx.has_path(graphe, position_adversaire, objectif)
+                )
+            except ValueError:
+                # Aucun chemin trouvé pour l'adversaire
+                distance_adversaire = float('inf')
 
-        # Calculer les chemins les plus courts
-        chemin_joueur = nx.shortest_path(graphe, position_joueur, objectif_joueur)
-        chemin_advs = nx.shortest_path(graphe, position_advs, objectif_advs)
+            # Plus la distance de l'adversaire est grande, mieux c'est
+            return distance_adversaire - distance_joueur
 
-        # Vérifier les conditions pour poser un mur
-        if len(chemin_advs) < len(chemin_joueur) and jt["murs"] > 0:
-            # Construire la liste des murs disponibles
-            murs_disponibles = []
-            for x in range(1, 9):  # Les murs sont entre 1 et 8
-                for y in range(2, 9):  # Les murs sont entre 2 et 9
-                    position_mur = [x, y]
-                    if position_mur not in self.murs["horizontaux"] and position_mur not in self.murs["verticaux"]:
-                        # Ajouter uniquement les murs proches du chemin de l'adversaire
-                        if any(abs(x - px) <= 1 and abs(y - py) <= 1 for px, py in chemin_advs):
-                            murs_disponibles.append(position_mur)
+        def minimax(etat, profondeur, alpha, beta, maximiser, joueur_actuel):
+            """Implémente l'algorithme Minimax avec élagage alpha-beta."""
+            if profondeur == 0 or etat.partie_terminée():
+                return fonction_evaluation(etat, joueur_actuel), None
 
-            meilleur_score = float('-inf')
-            meilleur_mur = None
+            if maximiser:
+                meilleur_score = float('-inf')
+                meilleur_coup = None
 
-            # Évaluer chaque mur possible
-            for mur in murs_disponibles:
-                for orientation in ["MH", "MV"]:
+                for coup, position in generer_coups_possibles(etat, joueur_actuel):
+                    etat_simulé = deepcopy(etat)
                     try:
-                        # Valider le mur en appelant placer_un_mur
-                        etat_simulé = Quoridor(deepcopy(self.joueurs), deepcopy(self.murs), self.tour)
-                        etat_simulé.placer_un_mur(joueur, mur, orientation)
-
-                        # Calculer les nouveaux chemins
-                        graphe_simulé = construire_graphe(
-                            [joueur['position'] for joueur in etat_simulé.joueurs],
-                            etat_simulé.murs["horizontaux"],
-                            etat_simulé.murs["verticaux"]
-                        )
-                        chemin_advs_simulé = nx.shortest_path(graphe_simulé, position_advs, objectif_advs)
-
-                        # Calculer l'augmentation de la longueur du chemin de l'adversaire
-                        delta_adv = len(chemin_advs_simulé) - len(chemin_advs)
-                        if delta_adv > meilleur_score:
-                            meilleur_score = delta_adv
-                            meilleur_mur = (mur, orientation)
-
-                    except QuoridorError:
-                        # Ignorer les murs invalides
+                        etat_simulé.appliquer_un_coup(joueur_actuel, coup, position)
+                        score, _ = minimax(etat_simulé, profondeur - 1, alpha, beta, False, joueur_actuel)
+                        if score > meilleur_score:
+                            meilleur_score = score
+                            meilleur_coup = (coup, position)
+                        alpha = max(alpha, score)
+                        if beta <= alpha:
+                            break
+                    except QuoridorError as e:
+                        print(f"Erreur lors de l'application du coup : {e}")
                         continue
 
-            # Si un mur valide a été trouvé, le poser
-            if meilleur_mur:
-                self.placer_un_mur(joueur, meilleur_mur[0], meilleur_mur[1])
-                return meilleur_mur[1], meilleur_mur[0]
+                return meilleur_score, meilleur_coup
+            else:
+                meilleur_score = float('inf')
+                meilleur_coup = None
 
-        # Sinon, avancer vers l'objectif
-        prochaine_position = list(chemin_joueur[1])
-        self.déplacer_un_joueur(joueur, prochaine_position)
-        return "D", prochaine_position
+                adversaire = self.joueurs[1]["nom"] if joueur_actuel == self.joueurs[0]["nom"] else self.joueurs[0]["nom"]
+                for coup, position in generer_coups_possibles(etat, adversaire):
+                    etat_simulé = deepcopy(etat)
+                    try:
+                        etat_simulé.appliquer_un_coup(adversaire, coup, position)
+                        score, _ = minimax(etat_simulé, profondeur - 1, alpha, beta, True, joueur_actuel)
+                        if score < meilleur_score:
+                            meilleur_score = score
+                            meilleur_coup = (coup, position)
+                        beta = min(beta, score)
+                        if beta <= alpha:
+                            break
+                    except QuoridorError as e:
+                        print(f"Erreur lors de l'application du coup : {e}")
+                        continue
+
+                return meilleur_score, meilleur_coup
+
+        def generer_coups_possibles(etat, joueur_actuel):
+            """Génère tous les coups possibles pour un joueur."""
+            coups = []
+
+            # Ajouter les déplacements possibles
+            position_actuelle = tuple(next(j for j in etat.joueurs if j["nom"] == joueur_actuel)["position"])
+            graphe = construire_graphe(
+                [joueur['position'] for joueur in etat.joueurs],
+                etat.murs["horizontaux"],
+                etat.murs["verticaux"]
+            )
+
+            if joueur_actuel == etat.joueurs [0]["nom"] and position_actuelle[1] == 8:
+                for voisin in graphe.successors(position_actuelle):
+                    if voisin[1] == 9:
+                        coups.append(("D", list(voisin)))
+                        return coups
+                    
+            for voisin in graphe.successors(position_actuelle):
+                # Ignorer les destinations finales "B1" et "B2"
+                if isinstance(voisin, str):  # Exclure "B1" et "B2"
+                    continue
+                if not (1 <= voisin[0] <= 9 and 1 <= voisin[1] <= 9):  # Vérifier les limites du damier
+                    continue
+                coups.append(("D", list(voisin)))
+
+            # Ajouter les placements de murs possibles
+            if next(j for j in etat.joueurs if j["nom"] == joueur_actuel)["murs"] > 0:
+                for x in range(1, 9):
+                    for y in range(2, 9):
+                        for orientation in ["MH", "MV"]:
+                            if orientation == "MV" and x == 1:  # Ignorer les murs verticaux à x=1
+                                continue
+                            position_mur = [x, y]
+                            if position_mur not in etat.murs["horizontaux"] and position_mur not in etat.murs["verticaux"]:
+                                try:
+                                    etat_simulé = deepcopy(etat)
+                                    etat_simulé.placer_un_mur(joueur_actuel, position_mur, orientation)
+                                    coups.append((orientation, position_mur))
+                                except QuoridorError:
+                                    continue
+
+            return coups
+
+        # Appeler Minimax pour déterminer le meilleur coup
+        _, meilleur_coup = minimax(self, profondeur=2, alpha=float('-inf'), beta=float('inf'), maximiser=True, joueur_actuel=joueur)
+
+        if not meilleur_coup:
+            raise RuntimeError("Aucun coup valide trouvé.")
+
+        # Appliquer le coup calculé à l'état local
+        coup, position = meilleur_coup
+        if coup == "D":
+            self.déplacer_un_joueur(joueur, position)
+        elif coup in ["MH", "MV"]:
+            self.placer_un_mur(joueur, position, coup)
+
+        # Retourner le coup et la position
+        return meilleur_coup
 
 
 def interpréter_la_ligne_de_commande():
