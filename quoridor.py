@@ -519,10 +519,34 @@ class Quoridor:
 
         # Appeler Minimax pour déterminer le meilleur coup
         _, meilleur_coup = minimax(self, profondeur=2, alpha=float('-inf'), beta=float('inf'), maximiser=True, joueur_actuel=joueur)
-
         
-             
-            
+        if meilleur_coup is None:
+            # 1) Reconstruire le graphe pour l'état actuel
+            graphe = construire_graphe(
+                [j['position'] for j in self.joueurs],
+                self.murs["horizontaux"],
+                self.murs["verticaux"]
+            )
+            # 2) Position actuelle et objectifs
+            pos_actuelle = tuple(next(j for j in self.joueurs if j["nom"] == joueur)["position"])
+            # On définit la ligne cible selon le joueur
+            if joueur == self.joueurs[0]["nom"]:
+                objectifs = [(x, 9) for x in range(1, 10)]
+            else:
+                objectifs = [(x, 1) for x in range(1, 10)]
+            # 3) Trouver le plus court chemin vers la ligne cible
+            chemins = []
+            for obj in objectifs:
+                if nx.has_path(graphe, pos_actuelle, obj):
+                    chemins.append(nx.shortest_path(graphe, pos_actuelle, obj))
+            if chemins:
+                # on choisit le chemin le plus court
+                chemin_min = min(chemins, key=len)
+                # si on peut avancer d’au moins une case
+                if len(chemin_min) >= 2:
+                    # propose de se déplacer vers la deuxième case du chemin
+                    prochain_pos = chemin_min[1]
+                    meilleur_coup = ("D", list(prochain_pos))
 
         # Appliquer le coup calculé à l'état local
         coup, position = meilleur_coup
