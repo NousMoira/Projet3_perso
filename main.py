@@ -16,6 +16,7 @@ JETONS = {
 if __name__ == "__main__":
     args = interpréter_la_ligne_de_commande()
     AUTOMATIQUE = args.automatique
+    GRAPHIQUE = args.graphique
     secret = JETONS[args.idul]
     id_partie, état = créer_une_partie(args.idul, secret)
     quoridor = Quoridor(état["joueurs"], état["murs"], état["tour"])
@@ -47,6 +48,7 @@ if __name__ == "__main__":
                 args.idul,
                 secret,
             )
+            
 
             # Appliquer le coup de l'adversaire dans votre jeu
             coup, position = quoridor.appliquer_un_coup(
@@ -54,6 +56,8 @@ if __name__ == "__main__":
                 coup,
                 position,
             )
+            if GRAPHIQUE:
+                quoridor.afficher()
             print(f"Le serveur à jouer le coup {coup} à la position{position}")
 
         except StopIteration as erreur:

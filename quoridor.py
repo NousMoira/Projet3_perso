@@ -635,7 +635,7 @@ class QuoridorX(Quoridor):
         # 3) Murs verticaux hérités
         for x, y in murs["verticaux"]:
             sx = self.origin[0] + (x-2) * self.cell_size + self.cell_size
-            sy = self.origin[1] + (y-1) * self.cell_size
+            sy = self.origin[1] + (y - 1 + 2) * self.cell_size
             self.drawer.penup(); self.drawer.goto(sx, sy); self.drawer.pendown()
             self.drawer.setheading(270); self.drawer.forward(self.cell_size * 2)
             self.drawer.setheading(0)
@@ -657,15 +657,7 @@ class QuoridorX(Quoridor):
     # Ne copie que la partie logique -> retourne un Quoridor pur
         return Quoridor(self.joueurs, self.murs, self.tour)
     
-    def appliquer_un_coup(self, joueur, coup, position):
-        """
-        Applique le coup puis met à jour la vue graphique.
-        """
-        # Appel de la logique parent
-        result = super().appliquer_un_coup(joueur, coup, position)
-        # Rafraîchir l'affichage après le coup
-        self.afficher()
-        return result
+    
 
 
 def interpréter_la_ligne_de_commande():
@@ -682,15 +674,11 @@ def interpréter_la_ligne_de_commande():
         "idul",
         type=str,
         help="IDUL du joueur",
-        nargs="?",
-        default="ralem59"
     )
     parser.add_argument("-a", "--automatique",
-                         action="store_true",
                          help="Activer le mode automatique."
                          )
-    parser.add_argument("-x","--graphique",
-                        action="store_true", 
+    parser.add_argument("-x","--graphique", 
                         help="Activer le mode graphique."
                         )
     return parser.parse_args()
