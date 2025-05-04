@@ -175,11 +175,11 @@ class Quoridor:
                 break
         else:
             raise QuoridorError("Le joueur n'existe pas.")
-        
+
         x, y = position
         if not (1 <= x <= 9 and 1 <= y <= 9): #si le joueur est en dehors du damier
             raise QuoridorError("La position est invalide (en dehors du damier).")
-        
+
         x_actuel, y_actuel = joueur_trouvé["position"] #position du joueur avant le coup
 
         graphe = construire_graphe(
@@ -188,7 +188,7 @@ class Quoridor:
             self.murs["verticaux"]
         )
         if (x, y) not in graphe.successors((x_actuel, y_actuel)):
-                raise QuoridorError("La position est invalide pour l'état actuel du jeu.")
+                    raise QuoridorError("La position est invalide pour l'état actuel du jeu.")
         
         joueur_trouvé["position"] = [x, y] #on update la position du joueur
 
@@ -219,7 +219,7 @@ class Quoridor:
         x, y = position
         if not (1 <= x <= 9 and 1 <= y <= 9):
             raise QuoridorError("La position est invalide (en dehors du damier).")
-        
+     
 
         if (
             (orientation == "MH" and (

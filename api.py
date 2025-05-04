@@ -69,7 +69,9 @@ def appliquer_un_coup(id_partie, coup, position, idul, secret):
     Returns:
         tuple: Tuple constitué du coup joué par le serveur et de la position du coup,
     """
-    print(f"Envoyer au serveur : id_partie={id_partie}, coup={coup}, position={position}, idul={idul}")
+    print(
+        f"Envoyer au serveur : id_partie={id_partie}, coup={coup}, position={position}, idul={idul}"
+    )
     rep = requests.put(
         f"{URL}/parties/{id_partie}",
         auth=(idul, secret),
