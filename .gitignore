@@ -8,6 +8,7 @@
 !/main.py
 !/pylintrc
 !/quoridor.py
+!/quoridorX.py
 !/quoridor_error.py
 !/README.md
 !/tests.py
